@@ -1,31 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"os/user"
 	"path"
 
 	"github.com/codegangsta/cli"
 )
 
 var (
-	GoPath = os.Getenv("GOPATH")
-	GoSrc  = path.Join(GoPath, "src")
-
 	rootDir = path.Join(home(), ".pharrell")
 )
-
-const (
-	layoutDir  = "2006-01-02"
-	layoutFile = "15_04_MST"
-)
-
-func home() string {
-	usr, err := user.Current()
-	ifExit(err)
-	return usr.HomeDir
-}
 
 func init() {
 	if _, err := os.Stat(rootDir); err != nil {
@@ -91,10 +75,3 @@ var (
 		Value: "file",
 	}
 )
-
-func ifExit(err error) {
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}

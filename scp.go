@@ -35,6 +35,9 @@ func cliSCP(c *cli.Context) {
 
 	done := make(chan error)
 	liftoff := time.Now()
+	// TODO: we should write the payload once
+	// and pass it in to the routines, rather
+	// than recomputing in each routine
 	for _, host := range hosts {
 		go copyToHost(clientConfig, src, dst, host, done)
 	}
@@ -72,6 +75,9 @@ func copyToHost(config *ssh.ClientConfig, src, dst, host string, done chan error
 	done <- err
 }
 
+// the following code is a modified version of https://github.com/gnicod/goscplib
+// which follows https://blogs.oracle.com/janp/entry/how_the_scp_protocol_works
+
 //Constants
 const (
 	SCP_PUSH_BEGIN_FILE       = "C"
@@ -88,6 +94,8 @@ type Scp struct {
 func GetPerm(f *os.File) (perm string) {
 	fileStat, _ := f.Stat()
 	mod := fileStat.Mode()
+	// if it's a directory there's high bits we want to ditch
+	// only keep the low bits
 	if mod > (1 << 9) {
 		mod = mod % (1 << 9)
 	}
@@ -122,7 +130,6 @@ func (scp *Scp) PushFile(src string, dest string) error {
 		if statErr != nil {
 			log.Fatalln("Failed to stat file: " + statErr.Error())
 		}
-		// According to https://blogs.oracle.com/janp/entry/how_the_scp_protocol_works
 		// Print the file content
 		fmt.Fprintln(w, SCP_PUSH_BEGIN_FILE+GetPerm(fileSrc), srcStat.Size(), filepath.Base(dest))
 		io.Copy(w, fileSrc)

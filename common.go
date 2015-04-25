@@ -1,19 +1,37 @@
-// code originally taken from https://github.com/gnicod/goscplib
-// but modified to work
-
 package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 )
+
+//------------------------------------------------------------------------------------------------------------------------------
+// convenience
+
+func ifExit(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func home() string {
+	usr, err := user.Current()
+	ifExit(err)
+	return usr.HomeDir
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+// keys
 
 // TODO: once ssh connections are established,
 // overwrite the priv keys memory buffers
@@ -40,6 +58,14 @@ func makeClientConfig(userName string, privateKey []byte) *ssh.ClientConfig {
 	}
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+// time/logging
+
+const (
+	layoutDir  = "2006-01-02"
+	layoutFile = "15_04_MST"
+)
+
 // splits time into date and time (seconds precision)
 // dir=date, file=time
 func timeToDirFile(t time.Time) (string, string) {
@@ -51,6 +77,9 @@ func timeToDirFile(t time.Time) (string, string) {
 	}
 	return dir, file
 }
+
+//------------------------------------------------------------------------------------------------------------------------------
+// hosts
 
 // return a single host or a list from file
 func loadHosts(host string) []string {
