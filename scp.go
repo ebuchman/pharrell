@@ -1,6 +1,3 @@
-// code originally taken from https://github.com/gnicod/goscplib
-// but modified to work
-
 package main
 
 import (
@@ -9,10 +6,71 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/codegangsta/cli"
 	"golang.org/x/crypto/ssh"
 )
+
+func cliSCP(c *cli.Context) {
+	if len(c.Args()) < 2 {
+		fmt.Println("Enter a source and destination")
+		os.Exit(1)
+	}
+
+	userName := c.String("user")
+
+	// if host its a file, parse
+	hosts := loadHosts(c.String("host"))
+
+	src, dst := c.Args()[0], c.Args()[1]
+	_, err := os.Stat(src)
+	ifExit(err)
+
+	privateKey := decryptKeyFile(path.Join(home(), ".ssh/id_rsa"))
+	clientConfig := makeClientConfig(userName, privateKey)
+
+	done := make(chan error)
+	liftoff := time.Now()
+	for _, host := range hosts {
+		go copyToHost(clientConfig, src, dst, host, done)
+	}
+
+	dir, file := timeToDirFile(liftoff)
+	for _, host := range hosts {
+		b := <-done
+		spl := strings.Split(host, ":")
+		addr := spl[0]
+
+		if b != nil {
+			err := ioutil.WriteFile(path.Join(dir, file+"_"+addr), []byte(b.Error()), 0600)
+			if err != nil {
+				fmt.Println("Error writing host to file: ", host, err)
+			}
+		}
+	}
+}
+
+func copyToHost(config *ssh.ClientConfig, src, dst, host string, done chan error) {
+	client, err := ssh.Dial("tcp", host, config)
+	if err != nil {
+		done <- fmt.Errorf("Failed to dial: %s %s", host, err.Error())
+		return
+	}
+	scp := NewScp(client)
+
+	f, _ := os.Stat(src)
+	if f.IsDir() {
+		err = scp.PushDir(src, dst)
+	} else {
+		err = scp.PushFile(src, dst)
+	}
+
+	done <- err
+}
 
 //Constants
 const (
